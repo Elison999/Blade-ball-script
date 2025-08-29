@@ -1,0 +1,785 @@
+-- Bridge Hub - Blade Ball (LocalScript)
+-- Coloque em StarterGui como LocalScript
+
+-- CONFIGURAÇÕES
+local ACCESS_KEY = "key_darkkbsosbsjVde"
+local FADE_TIME = 0.5
+local INITIAL_SHOW_TIME = 5 -- segundos antes do first screen sumir
+local PARENT = game:GetService("CoreGui") -- ou game.Players.LocalPlayer:WaitForChild("PlayerGui")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+
+-- UTIL
+local function make(class, props)
+    local obj = Instance.new(class)
+    for k,v in pairs(props or {}) do
+        if k == "Parent" then obj.Parent = v else obj[k] = v end
+    end
+    return obj
+end
+
+-- REMOVE DUPLICADOS
+local existing = PARENT:FindFirstChild("Bridge Hub - Blade Ball")
+if existing then existing:Destroy() end
+
+-- ROOT GUI
+local screenGui = make("ScreenGui", {
+    Name = "Bridge Hub - Blade Ball",
+    ResetOnSpawn = false,
+    Parent = PARENT
+})
+
+-- BACKDROP (blur-like)
+local bgFrame = make("Frame", {
+    Name = "Backdrop",
+    Parent = screenGui,
+    BackgroundColor3 = Color3.fromRGB(15,15,20),
+    BackgroundTransparency = 0.1,
+    Size = UDim2.new(1,0,1,0),
+    ZIndex = 0
+})
+bgFrame.BorderSizePixel = 0
+
+-- =========================
+--  KEY ENTRY + PROGRESS UI
+-- =========================
+local keyFrame = make("Frame", {
+    Name = "KeyFrame",
+    Parent = screenGui,
+    Size = UDim2.new(0,420,0,220),
+    Position = UDim2.new(0.5,-210,0.45,-110),
+    BackgroundColor3 = Color3.fromRGB(20,20,30),
+    BorderSizePixel = 0,
+    AnchorPoint = Vector2.new(0,0)
+})
+keyFrame.BackgroundTransparency = 0
+keyFrame.ClipsDescendants = true
+keyFrame.AnchorPoint = Vector2.new(0.5,0.5)
+
+local title = make("TextLabel", {
+    Parent = keyFrame,
+    Size = UDim2.new(1,0,0,50),
+    Position = UDim2.new(0,0,0,0),
+    BackgroundTransparency = 1,
+    Text = "Bridge Hub",
+    TextColor3 = Color3.fromRGB(230,230,230),
+    Font = Enum.Font.GothamBold,
+    TextSize = 28,
+    TextScaled = false
+})
+
+local subtitle = make("TextLabel", {
+    Parent = keyFrame,
+    Size = UDim2.new(1,-20,0,30),
+    Position = UDim2.new(0,10,0,50),
+    BackgroundTransparency = 1,
+    Text = "Blade Ball - Insira a key para continuar",
+    TextColor3 = Color3.fromRGB(170,170,170),
+    Font = Enum.Font.Gotham,
+    TextSize = 14,
+    TextXAlignment = Enum.TextXAlignment.Left
+})
+
+local inputBox = make("TextBox", {
+    Parent = keyFrame,
+    Size = UDim2.new(1,-40,0,40),
+    Position = UDim2.new(0,20,0,90),
+    BackgroundColor3 = Color3.fromRGB(12,12,16),
+    TextColor3 = Color3.fromRGB(220,220,220),
+    Text = "",
+    PlaceholderText = "Insira a key aqui",
+    Font = Enum.Font.Gotham,
+    TextSize = 16,
+    ClearTextOnFocus = false
+})
+inputBox.BorderSizePixel = 0
+
+local submitBtn = make("TextButton", {
+    Parent = keyFrame,
+    Size = UDim2.new(0,120,0,36),
+    Position = UDim2.new(0.5,-60,0,140),
+    BackgroundColor3 = Color3.fromRGB(60,120,255),
+    TextColor3 = Color3.new(1,1,1),
+    Text = "Verificar Key",
+    Font = Enum.Font.GothamBold,
+    TextSize = 16,
+})
+submitBtn.AutoButtonColor = true
+submitBtn.BorderSizePixel = 0
+
+-- Progress bar
+local progressBarBG = make("Frame", {
+    Parent = keyFrame,
+    Size = UDim2.new(1,-40,0,10),
+    Position = UDim2.new(0,20,1,-30),
+    BackgroundColor3 = Color3.fromRGB(30,30,40),
+    BorderSizePixel = 0
+})
+local progressBar = make("Frame", {
+    Parent = progressBarBG,
+    Size = UDim2.new(0,0,1,0),
+    Position = UDim2.new(0,0,0,0),
+    BackgroundColor3 = Color3.fromRGB(90,200,255),
+    BorderSizePixel = 0
+})
+
+local statusLabel = make("TextLabel", {
+    Parent = keyFrame,
+    Size = UDim2.new(1,0,0,18),
+    Position = UDim2.new(0,0,1,-18),
+    BackgroundTransparency = 1,
+    Text = "",
+    TextColor3 = Color3.fromRGB(160,160,160),
+    Font = Enum.Font.Gotham,
+    TextSize = 12
+})
+
+-- Simple tween helper
+local function tween(obj, props, time, style, dir)
+    style = style or Enum.EasingStyle.Quad
+    dir = dir or Enum.EasingDirection.Out
+    local info = TweenInfo.new(time, style, dir)
+    local t = TweenService:Create(obj, info, props)
+    t:Play()
+    return t
+end
+
+-- Function para animar progress bar (simulação de carregamento)
+local function runProgress(onComplete)
+    statusLabel.Text = "Carregando..."
+    local total = 1.0
+    local cur = 0
+    local steps = 60
+    for i=1,steps do
+        cur = i/steps
+        tween(progressBar, {Size = UDim2.new(cur,0,1,0)}, 0.06)
+        task.wait(0.06)
+    end
+    statusLabel.Text = "Carregado!"
+    if onComplete then onComplete() end
+end
+
+-- KEY checking
+local function grantAccess()
+    -- anima fade e depois esconde keyFrame
+    tween(keyFrame, {BackgroundTransparency = 1}, FADE_TIME)
+    tween(title, {TextTransparency = 1}, FADE_TIME)
+    tween(subtitle, {TextTransparency = 1}, FADE_TIME)
+    tween(inputBox, {TextTransparency = 1, BackgroundTransparency = 1}, FADE_TIME)
+    tween(submitBtn, {BackgroundTransparency = 1, TextTransparency = 1}, FADE_TIME)
+    tween(progressBarBG, {BackgroundTransparency = 1}, FADE_TIME)
+    tween(statusLabel, {TextTransparency = 1}, FADE_TIME)
+    task.wait(FADE_TIME + 0.05)
+    keyFrame:Destroy()
+end
+
+submitBtn.MouseButton1Click:Connect(function()
+    local text = inputBox.Text or ""
+    submitBtn.Text = "Verificando..."
+    submitBtn.Active = false
+    if text == ACCESS_KEY then
+        -- Simular carregamento (progress)
+        runProgress(function()
+            -- mostrar tela inicial com o nome do hub enquanto carrega
+            local splash = make("Frame", {
+                Parent = screenGui,
+                Name = "Splash",
+                Size = UDim2.new(0,600,0,250),
+                Position = UDim2.new(0.5,-300,0.42,-125),
+                BackgroundColor3 = Color3.fromRGB(10,10,14),
+                BorderSizePixel = 0
+            })
+            local sTitle = make("TextLabel", {
+                Parent = splash,
+                Size = UDim2.new(1,0,0,70),
+                Position = UDim2.new(0,0,0,10),
+                BackgroundTransparency = 1,
+                Text = "Bridge Hub",
+                TextColor3 = Color3.fromRGB(230,230,230),
+                Font = Enum.Font.GothamBold,
+                TextSize = 36
+            })
+            local sSub = make("TextLabel", {
+                Parent = splash,
+                Size = UDim2.new(1,-40,0,40),
+                Position = UDim2.new(0,20,0,90),
+                BackgroundTransparency = 1,
+                Text = "Bridge Hub - Blade Ball",
+                TextColor3 = Color3.fromRGB(160,160,160),
+                Font = Enum.Font.Gotham,
+                TextSize = 18,
+                TextXAlignment = Enum.TextXAlignment.Center
+            })
+            -- progress animado elegante
+            local sBarBG = make("Frame", {
+                Parent = splash,
+                Size = UDim2.new(0.8,0,0,12),
+                Position = UDim2.new(0.1,0,1,-40),
+                BackgroundColor3 = Color3.fromRGB(25,25,30),
+                BorderSizePixel = 0
+            })
+            local sBar = make("Frame", {
+                Parent = sBarBG,
+                Size = UDim2.new(0,0,1,0),
+                BackgroundColor3 = Color3.fromRGB(100,180,255),
+                BorderSizePixel = 0
+            })
+            tween(sBar, {Size = UDim2.new(1,0,1,0)}, 1.2)
+            -- espera 5s e depois faz fade out
+            task.delay(INITIAL_SHOW_TIME, function()
+                tween(splash, {BackgroundTransparency = 1}, FADE_TIME)
+                tween(sTitle, {TextTransparency = 1}, FADE_TIME)
+                tween(sSub, {TextTransparency = 1}, FADE_TIME)
+                tween(sBarBG, {BackgroundTransparency = 1}, FADE_TIME)
+                task.wait(FADE_TIME + 0.05)
+                if splash then splash:Destroy() end
+                grantAccess()
+                -- abre UI principal
+                -- (faz separado)
+                if screenGui and screenGui.Parent then
+                    -- create main UI
+                end
+            end)
+        end)
+    else
+        submitBtn.Text = "Key Inválida"
+        statusLabel.Text = "Key incorreta"
+        task.delay(1.2, function()
+            submitBtn.Text = "Verificar Key"
+            submitBtn.Active = true
+            statusLabel.Text = ""
+        end)
+    end
+end)
+
+-- =========================
+-- MAIN UI (será criada após fechar keyFrame/splash)
+-- =========================
+local function createMainUI()
+    -- Container panel
+    local mainFrame = make("Frame", {
+        Parent = screenGui,
+        Name = "MainFrame",
+        Size = UDim2.new(0,700,0,420),
+        Position = UDim2.new(0.5,-350,0.45,-210),
+        BackgroundColor3 = Color3.fromRGB(12,12,18),
+        BorderSizePixel = 0
+    })
+    mainFrame.AnchorPoint = Vector2.new(0.5,0.5)
+    mainFrame.ClipsDescendants = true
+
+    -- Header
+    local header = make("Frame", {
+        Parent = mainFrame,
+        Size = UDim2.new(1,0,0,70),
+        BackgroundTransparency = 1
+    })
+    local hubName = make("TextLabel", {
+        Parent = header,
+        Size = UDim2.new(0.6,0,1,0),
+        Position = UDim2.new(0,20,0,0),
+        BackgroundTransparency = 1,
+        Text = "Bridge Hub - Blade Ball",
+        TextColor3 = Color3.fromRGB(230,230,230),
+        Font = Enum.Font.GothamBold,
+        TextSize = 20,
+        TextXAlignment = Enum.TextXAlignment.Left
+    })
+    local closeBtn = make("TextButton", {
+        Parent = header,
+        Size = UDim2.new(0,90,0,36),
+        Position = UDim2.new(1,-110,0,18),
+        BackgroundColor3 = Color3.fromRGB(40,40,50),
+        Text = "Fechar",
+        TextColor3 = Color3.fromRGB(220,220,220),
+        Font = Enum.Font.Gotham,
+        TextSize = 14
+    })
+    closeBtn.BorderSizePixel = 0
+
+    closeBtn.MouseButton1Click:Connect(function()
+        -- fade out and destroy
+        tween(mainFrame, {BackgroundTransparency = 1}, 0.3)
+        for _,v in pairs(mainFrame:GetDescendants()) do
+            if v:IsA("TextLabel") or v:IsA("TextButton") or v:IsA("TextBox") then
+                tween(v, {TextTransparency = 1}, 0.25)
+            end
+        end
+        task.wait(0.35)
+        screenGui:Destroy()
+    end)
+
+    -- Left side: Tabs
+    local leftPanel = make("Frame", {
+        Parent = mainFrame,
+        Size = UDim2.new(0,180,1,0),
+        BackgroundColor3 = Color3.fromRGB(18,18,24),
+        Position = UDim2.new(0,0,0,0),
+        BorderSizePixel = 0
+    })
+    local tabCombatBtn = make("TextButton", {
+        Parent = leftPanel,
+        Size = UDim2.new(1,0,0,50),
+        Position = UDim2.new(0,0,0,10),
+        BackgroundTransparency = 1,
+        Text = "Combat",
+        TextColor3 = Color3.fromRGB(200,200,200),
+        Font = Enum.Font.Gotham,
+        TextSize = 16
+    })
+    tabCombatBtn.BorderSizePixel = 0
+
+    -- Right side: Content area
+    local content = make("Frame", {
+        Parent = mainFrame,
+        Size = UDim2.new(1,-180,1, -20),
+        Position = UDim2.new(0,180,0,10),
+        BackgroundTransparency = 1
+    })
+
+    -- Combat Tab content
+    local combatFrame = make("Frame", {
+        Parent = content,
+        Size = UDim2.new(1, -20, 1, -20),
+        Position = UDim2.new(0,10,0,10),
+        BackgroundColor3 = Color3.fromRGB(14,14,18),
+        BorderSizePixel = 0
+    })
+
+    -- Title
+    local cTitle = make("TextLabel", {
+        Parent = combatFrame,
+        Size = UDim2.new(1,0,0,36),
+        Position = UDim2.new(0,10,0,8),
+        BackgroundTransparency = 1,
+        Text = "Combat",
+        TextColor3 = Color3.fromRGB(230,230,230),
+        Font = Enum.Font.GothamBold,
+        TextSize = 18,
+        TextXAlignment = Enum.TextXAlignment.Left
+    })
+
+    -- Auto Parry Toggle
+    local autoParryToggle = make("TextButton", {
+        Parent = combatFrame,
+        Size = UDim2.new(0,160,0,36),
+        Position = UDim2.new(0,10,0,60),
+        BackgroundColor3 = Color3.fromRGB(40,40,50),
+        Text = "Auto Parry: OFF",
+        Font = Enum.Font.Gotham,
+        TextSize = 14,
+        TextColor3 = Color3.fromRGB(220,220,220)
+    })
+    autoParryToggle.BorderSizePixel = 0
+
+    -- Parry threshold textbox (coloquei um textbox conforme pediu)
+    local thresholdLabel = make("TextLabel", {
+        Parent = combatFrame,
+        Size = UDim2.new(0,220,0,18),
+        Position = UDim2.new(0,10,0,110),
+        BackgroundTransparency = 1,
+        Text = "Parry Time Threshold (segundos, default 10):",
+        TextColor3 = Color3.fromRGB(170,170,170),
+        Font = Enum.Font.Gotham,
+        TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Left
+    })
+    local thresholdBox = make("TextBox", {
+        Parent = combatFrame,
+        Size = UDim2.new(0,120,0,28),
+        Position = UDim2.new(0,10,0,130),
+        BackgroundColor3 = Color3.fromRGB(18,18,22),
+        TextColor3 = Color3.fromRGB(220,220,220),
+        Text = "10",
+        Font = Enum.Font.Gotham,
+        TextSize = 14,
+        ClearTextOnFocus = false
+    })
+    thresholdBox.BorderSizePixel = 0
+
+    -- Parry debug toggle
+    local parryDebugBtn = make("TextButton", {
+        Parent = combatFrame,
+        Size = UDim2.new(0,110,0,28),
+        Position = UDim2.new(0,150,0,130),
+        BackgroundColor3 = Color3.fromRGB(40,40,50),
+        Text = "Debug: OFF",
+        Font = Enum.Font.Gotham,
+        TextSize = 12,
+        TextColor3 = Color3.fromRGB(220,220,220)
+    })
+    parryDebugBtn.BorderSizePixel = 0
+
+    -- Textbox livre para o "script" (conforme pedido)
+    local scriptLabel = make("TextLabel", {
+        Parent = combatFrame,
+        Size = UDim2.new(1,-30,0,18),
+        Position = UDim2.new(0,10,0,170),
+        BackgroundTransparency = 1,
+        Text = "Textbox (uso livre):",
+        TextColor3 = Color3.fromRGB(170,170,170),
+        Font = Enum.Font.Gotham,
+        TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Left
+    })
+    local freeTextbox = make("TextBox", {
+        Parent = combatFrame,
+        Size = UDim2.new(1,-30,0,110),
+        Position = UDim2.new(0,10,0,190),
+        BackgroundColor3 = Color3.fromRGB(12,12,16),
+        TextColor3 = Color3.fromRGB(220,220,220),
+        Text = "",
+        ClearTextOnFocus = false,
+        Font = Enum.Font.Code,
+        TextSize = 14,
+        TextWrapped = true,
+        MultiLine = true
+    })
+    freeTextbox.BorderSizePixel = 0
+
+    -- Auto Spam Toggle
+    local autoSpamToggle = make("TextButton", {
+        Parent = combatFrame,
+        Size = UDim2.new(0,160,0,36),
+        Position = UDim2.new(0,320,0,60),
+        BackgroundColor3 = Color3.fromRGB(40,40,50),
+        Text = "Auto Spam: OFF",
+        Font = Enum.Font.Gotham,
+        TextSize = 14,
+        TextColor3 = Color3.fromRGB(220,220,220)
+    })
+    autoSpamToggle.BorderSizePixel = 0
+
+    -- Status labels
+    local parryStatus = make("TextLabel", {
+        Parent = combatFrame,
+        Size = UDim2.new(0,220,0,18),
+        Position = UDim2.new(0,10,1,-26),
+        BackgroundTransparency = 1,
+        Text = "Parry: Inativo",
+        TextColor3 = Color3.fromRGB(170,170,170),
+        Font = Enum.Font.Gotham,
+        TextSize = 12
+    })
+    local spamStatus = make("TextLabel", {
+        Parent = combatFrame,
+        Size = UDim2.new(0,220,0,18),
+        Position = UDim2.new(0,240,1,-26),
+        BackgroundTransparency = 1,
+        Text = "Spam: Inativo",
+        TextColor3 = Color3.fromRGB(170,170,170),
+        Font = Enum.Font.Gotham,
+        TextSize = 12
+    })
+
+    -- Habilitar visibilidade do combate (por padrão)
+    combatFrame.Visible = true
+
+    -- Funções de toggle
+    local parryEnabled = false
+    local spamEnabled = false
+    local parryDebug = false
+
+    parryDebugBtn.MouseButton1Click:Connect(function()
+        parryDebug = not parryDebug
+        parryDebugBtn.Text = parryDebug and "Debug: ON" or "Debug: OFF"
+    end)
+
+    autoParryToggle.MouseButton1Click:Connect(function()
+        parryEnabled = not parryEnabled
+        autoParryToggle.Text = parryEnabled and "Auto Parry: ON" or "Auto Parry: OFF"
+        parryStatus.Text = parryEnabled and "Parry: Ativo" or "Parry: Inativo"
+        spawn(function()
+            if parryEnabled then
+                -- Executa o script de parry (adaptado)
+                -- Variáveis locais
+                local Debug = parryDebug
+                local ReplicatedStorage = game:GetService("ReplicatedStorage")
+                local Players = game:GetService("Players")
+                local Player = Players.LocalPlayer or Players.PlayerAdded:Wait()
+                local Remotes = ReplicatedStorage:WaitForChild("Remotes", 9e9)
+                local Balls = workspace:WaitForChild("Balls", 9e9)
+
+                -- Anticheat bypass (mantive como linha mas com pcall por segurança)
+                pcall(function()
+                    loadstring(game:GetObjects("rbxassetid://15900013841")[1].Source)()
+                end)
+
+                local function dprint(...)
+                    if Debug then
+                        warn(...)
+                    end
+                end
+
+                local function VerifyBall(Ball)
+                    if typeof(Ball) == "Instance" and Ball:IsA("BasePart") and Ball:IsDescendantOf(Balls) and Ball:GetAttribute("realBall") == true then
+                        return true
+                    end
+                end
+
+                local function IsTarget()
+                    return (Player.Character and Player.Character:FindFirstChild("Highlight"))
+                end
+
+                local function Parry()
+                    -- tenta enviar remoto
+                    if Remotes:FindFirstChild("ParryButtonPress") then
+                        pcall(function() Remotes:WaitForChild("ParryButtonPress"):Fire() end)
+                    end
+                end
+
+                -- Lê threshold do textbox
+                local function getThreshold()
+                    local v = tonumber(thresholdBox.Text)
+                    if v and v > 0 then return v end
+                    return 10
+                end
+
+                local connection
+                connection = Balls.ChildAdded:Connect(function(Ball)
+                    if not parryEnabled then
+                        if connection then connection:Disconnect() end
+                        return
+                    end
+                    if not VerifyBall(Ball) then return end
+                    dprint("Ball Spawned:", Ball:GetFullName())
+                    local OldPosition = Ball.Position
+                    local OldTick = tick()
+                    local conn2
+                    conn2 = Ball:GetPropertyChangedSignal("Position"):Connect(function()
+                        if not parryEnabled then
+                            if conn2 then conn2:Disconnect() end
+                            return
+                        end
+                        if IsTarget() then
+                            local Distance = (Ball.Position - workspace.CurrentCamera.Focus.Position).Magnitude
+                            local Velocity = (OldPosition - Ball.Position).Magnitude
+                            if Velocity <= 0 then Velocity = 0.0001 end
+                            dprint("Distance:", Distance, "Velocity:", Velocity, "Time:", (Distance / Velocity))
+                            local threshold = getThreshold()
+                            if (Distance / Velocity) <= threshold then
+                                Parry()
+                            end
+                        end
+                        if (tick() - OldTick >= 1/60) then
+                            OldTick = tick()
+                            OldPosition = Ball.Position
+                        end
+                    end)
+                    -- se desativar, limpa
+                    spawn(function()
+                        while parryEnabled and Ball and Ball.Parent do task.wait(0.2) end
+                        if conn2 then pcall(function() conn2:Disconnect() end) end
+                    end)
+                end)
+
+                -- loop que aguarda até parryEnabled ficar false
+                while parryEnabled do task.wait(0.5) end
+                -- desconecta tudo ao sair
+                if connection then pcall(function() connection:Disconnect() end) end
+            end
+        end)
+    end)
+
+    autoSpamToggle.MouseButton1Click:Connect(function()
+        spamEnabled = not spamEnabled
+        autoSpamToggle.Text = spamEnabled and "Auto Spam: ON" or "Auto Spam: OFF"
+        spamStatus.Text = spamEnabled and "Spam: Ativo" or "Spam: Inativo"
+        if spamEnabled then
+            -- inicia o script de spam (adaptado)
+            spawn(function()
+                -- Versão adaptada do script fornecido
+                local VirtualInputManager = game:GetService("VirtualInputManager")
+                local Players = game:GetService("Players")
+                local localPlayer = Players.LocalPlayer
+
+                local function get_plr() return localPlayer end
+                local function get_plrChar() return get_plr() and get_plr().Character end
+                local function get_plrRP()
+                    local plrChar = get_plrChar()
+                    if plrChar then return plrChar:FindFirstChild("HumanoidRootPart") end
+                end
+                local function playerJump()
+                    pcall(function() local plr = get_plr(); if plr and plr.Character and plr.Character:FindFirstChild("Humanoid") then plr.Character.Humanoid.Jump = true end end)
+                end
+                local function get_PlayersNumber()
+                    local Alive = workspace:WaitForChild("Alive", 20):GetChildren()
+                    local PlayersNumber = 0
+                    for _,v in pairs(Alive) do
+                        if v and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 50 then
+                            PlayersNumber = PlayersNumber + 1
+                        end
+                    end
+                    return PlayersNumber
+                end
+                local function get_ProxyPlayer()
+                    local PlayersList = workspace:WaitForChild("Alive"):GetChildren()
+                    local Distance = math.huge
+                    local plr = get_plr()
+                    local plrRP = plr and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+                    local Player = nil
+                    for _,plr1 in pairs(PlayersList) do
+                        if plr1.Name ~= plr.Name and plrRP and plr1:FindFirstChild("HumanoidRootPart") and plr1:FindFirstChild("Humanoid") and plr1.Humanoid.Health > 50 then
+                            local magnitude = (plr1.HumanoidRootPart.Position - plrRP.Position).Magnitude
+                            if magnitude <= Distance then
+                                Distance = magnitude
+                                Player = plr1
+                            end
+                        end
+                    end
+                    return Player
+                end
+
+                -- Função Click_Button que simula clique (pode variar por jogo)
+                local function Click_Button()
+                    task.spawn(function()
+                        local plr = game.Players.LocalPlayer
+                        local plrFind = workspace.Alive:FindFirstChild(plr.Name)
+                        if plrFind then
+                            local plrs = 0
+                            for _,v in pairs(workspace:WaitForChild("Alive", 10):GetChildren()) do
+                                plrs = plrs + 1
+                            end
+                            if plrs > 1 then
+                                -- attempt to send mouse click to world; may not work on all clients
+                                pcall(function()
+                                    VirtualInputManager:SendMouseButtonEvent(0,0,0,true,game,0)
+                                end)
+                            end
+                        end
+                    end)
+                end
+
+                getgenv().SpamClickA = false
+                getgenv().DetectSpam = true
+
+                -- DetectSpam adaptation (keeps running until toggled off)
+                local function DetectSpam()
+                    local Balls = workspace:WaitForChild("Balls", 20)
+                    local OldPos = Vector3.new()
+                    local OldTick1 = tick()
+                    local OldBall = Balls
+                    local TargetPlayer = ""
+                    local SpamNum = 0
+                    local BallSpeed = 0
+                    local BallDistance = 0
+
+                    spawn(function()
+                        local OldTick = tick()
+                        local OldPosLocal = Vector3.new()
+                        while getgenv().DetectSpam do
+                            task.wait()
+                            local plrRP = get_plrRP()
+                            local Ball = Balls:FindFirstChildOfClass("Part")
+                            if plrRP and Ball then
+                                BallDistance = (plrRP.Position - Ball.Position).Magnitude
+                                BallSpeed = (OldPosLocal - Ball.Position).Magnitude
+                                if tick() - OldTick >= 1/60 then
+                                    OldTick = tick()
+                                    OldPosLocal = Ball.Position
+                                end
+                            end
+                        end
+                    end)
+
+                    while getgenv().DetectSpam do
+                        task.wait()
+                        local Ball = Balls:FindFirstChildOfClass("Part")
+                        local plrRP = get_plrRP()
+                        local ProxyPlayer = get_ProxyPlayer()
+
+                        if not Ball then
+                            getgenv().SpamClickA = false
+                        end
+
+                        if Ball and Ball:GetAttribute("realBall") and OldBall ~= Ball then
+                            Ball.Changed:Connect(function()
+                                task.wait()
+                                local BallNow = Balls:FindFirstChildOfClass("Part")
+                                if BallNow then
+                                    TargetPlayer = BallNow:GetAttribute("target")
+                                    if ProxyPlayer and TargetPlayer == ProxyPlayer.Name or get_plr() and TargetPlayer == get_plr().Name then
+                                        SpamNum = SpamNum + 1
+                                    else
+                                        SpamNum = 0
+                                    end
+
+                                    local args = ProxyPlayer and ProxyPlayer:FindFirstChild("HumanoidRootPart")
+                                    local HL1 = ProxyPlayer and ProxyPlayer:FindFirstChild("Highlight")
+                                    local HL2 = get_plrChar() and get_plrChar():FindFirstChild("Highlight")
+
+                                    if plrRP and HL1 and args or plrRP and HL2 and args then
+                                        local DistancePlayer = (ProxyPlayer.HumanoidRootPart.Position - plrRP.Position).Magnitude
+                                        local DistanceBall = (BallNow.Position - plrRP.Position).Magnitude
+
+                                        if get_PlayersNumber() < 3 then
+                                            if DistancePlayer <= 30 and DistanceBall <= 35 and SpamNum >= 2 then
+                                                getgenv().SpamClickA = true
+                                            else
+                                                getgenv().SpamClickA = false
+                                            end
+                                        else
+                                            if DistancePlayer <= 30 and DistanceBall <= 35 and SpamNum >= 3 then
+                                                getgenv().SpamClickA = true
+                                            else
+                                                getgenv().SpamClickA = false
+                                            end
+                                        end
+                                    else
+                                        getgenv().SpamClickA = false
+                                    end
+                                end
+                            end)
+                            OldBall = Ball
+                        end
+                    end
+                end
+
+                -- Spawn clicker loop
+                spawn(function()
+                    while spamEnabled do
+                        task.wait()
+                        if getgenv().SpamClickA then
+                            Click_Button()
+                        end
+                    end
+                end)
+
+                -- Run DetectSpam until spamEnabled false
+                DetectSpam()
+                -- Clean up
+                getgenv().DetectSpam = false
+                getgenv().SpamClickA = false
+            end)
+        else
+            -- if disabled, ensure global flags are off
+            getgenv().DetectSpam = false
+            getgenv().SpamClickA = false
+        end
+    end)
+
+    -- Tab button logic (apenas um tab por hora)
+    tabCombatBtn.MouseButton1Click:Connect(function()
+        combatFrame.Visible = true
+    end)
+end
+
+-- Observador que cria main UI depois que keyFrame for removida
+local function waitForKeyRemovalAndCreateUI()
+    -- se keyFrame já removido então cria imediatamente
+    if not keyFrame or not keyFrame.Parent then
+        createMainUI()
+    else
+        -- monitoramento simples: quando KeyFrame for destruído
+        spawn(function()
+            while keyFrame and keyFrame.Parent do task.wait(0.2) end
+            if screenGui and screenGui.Parent then
+                createMainUI()
+            end
+        end)
+    end
+end
+
+waitForKeyRemovalAndCreateUI()
+
+-- FIM DO SCRIPT
